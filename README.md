@@ -65,3 +65,5 @@ As reference, this core of this project uses a variety of tools and technologies
   - [Comparing Prisma to other ORMs and ODMs](https://www.prisma.io/docs/concepts/more/comparisons).
 - [Vitest](https://vitest.dev/guide/); a Vite-native unit test framework.
 - [Zod](https://zod.dev/?id=basic-usage); TypeScript-first schema validation with static type inference.
+
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/tryretool/retool-onpremise/ssop/deploy-retool)

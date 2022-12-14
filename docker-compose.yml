@@ -1,0 +1,56 @@
+version: '3'
+
+# This docker-compose file is designed to run from within a 'dev-environment' directory that has
+# various other repos (with their Dockerfiles defining the container) adjacent. This is intended
+# to bridge the gap between a collection of individual repos, and a giant monorepo in a
+# functional manner.
+
+services:
+  # This is the postgres installation that backs our appliction.
+  # Hasura will apply any migrations that exist in the protection-db repo,
+  # but there are also several scripts that should be run at startup before
+  # Hasura connects.  Before it does, this container will run any scripts that
+  # are contained in the volume munted below.  You can "seed" the database by
+  # placing a pg_dump file there as well.
+  postgres:
+    build:
+      dockerfile: ./Dockerfile
+    environment:
+      POSTGRES_PASSWORD: 'doadmin'
+      POSTGRES_USER: 'doadmin'
+      POSTGRES_DB: 'corso'
+    ports:
+      - 5432:5432
+    volumes:
+      - ./docker-entrypoint-initdb.d/:/docker-entrypoint-initdb.d
+
+  # This is the Hasura container defintion.  It will apply migrations and metadata at
+  # the volume mountpoints defined below, so the repo being kept current should ensure that
+  # the schema of the dev environment mirrors that in production.
+  graphql-engine:
+    image: hasura/graphql-engine:v2.6.2.cli-migrations-v3
+    ports:
+      - 8080:8080
+    depends_on:
+      - 'postgres'
+    restart: always
+    environment:
+      HASURA_ACTIONS_SERVER: http://hasura-logic-app-service:3020
+      ## postgres database to store Hasura metadata
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: postgres://doadmin:doadmin@postgres:5432/corso
+      HASURA_GRAPHQL_DATABASE_URL: postgres://doadmin:doadmin@postgres:5432/corso
+      ## enable the console served by server
+      HASURA_GRAPHQL_ENABLE_CONSOLE: 'false' # set to "false" to disable console
+      ## enable debugging mode. It is recommended to disable this in production
+      HASURA_GRAPHQL_DEV_MODE: 'true'
+      ## uncomment next line to set an admin secret
+      HASURA_GRAPHQL_ADMIN_SECRET: password
+      HASURA_GRAPHQL_JWT_SECRET: '{  "type": "HS256",  "key": "secretsecretsecretsecretsecretsecret",  "claims_namespace": "hasura_claims",  "claims_format": "stringified_json",  "allowed_skew": 60}'
+    volumes:
+      - './hasura-migrations/metadata:/hasura-metadata'
+
+  redis:
+    image: 'redis:alpine'
+    ports:
+      - 6379:6379
+    command: sh -c "rm -f /data/dump.rdb && redis-server" # disable persistence
